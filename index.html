@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Noobs Chat</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@100;200;300;400;500&display=swap');
+
+        body {
+            font-family: 'Poppins', sans-serif;
+            margin: 0;
+            padding: 0;
+            background: linear-gradient(#141e30, #243b55);
+        }
+
+        #navbar {
+            background-color: transparent;
+            color: #ffc23d;
+            text-align: center;
+            padding: 10px;
+            font-size: 18px;
+            font-weight: bold;
+        }
+
+        #chat-container {
+            width: 95%;
+            height: 645px;
+            margin: 20px auto;
+            background-color:#d7d5d5 ;
+            border: 3px solid #0000007e;
+            border-radius: 8px;
+            overflow: hidden ;
+            position: relative;
+            display: flex;
+            flex-direction: column; 
+        }
+
+        #chat-messages {
+            flex: 1; 
+            overflow-y: auto;
+            padding: 20px; 
+            background-color: transparent;
+        }
+
+        .current-user-message,
+        .other-user-message {
+            text-align: left;
+            border-radius: 10px;
+            padding: 10px;
+            margin-bottom: 5px;
+            display: block;
+            word-wrap: break-word;
+        }
+
+        .current-user-message {
+            width: fit-content;
+            max-width: 70%;
+            background-color: #ffc23d;
+            color: white;
+            border: 0.1px solid #0000007e;
+        }
+
+        .other-user-message {
+            width: fit-content;
+            max-width: 70%;
+            background-color: #f1f1f1;
+            border: 0.1px solid #0000007e;
+        }
+
+        #chat-messages div {
+            margin-bottom: 10px;
+        }
+
+        input[type="text"] {
+            width: 97.25%;
+            padding: 10px;
+            margin: 10px;
+            border: 1px solid #141e30;
+            border-radius: 4px;
+        }
+
+        button {
+            padding: 10px;
+            margin: 10px;
+            background-color: #ffc23d;;
+            color: #fff;
+            border: 1px solid #fff;
+            /* border: none; */
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+
+        button:hover {
+            background-color: #dd9701;
+        }
+
+        button:disabled {
+            background-color: #ddd;
+            cursor: not-allowed;
+        }
+
+        #profile-icon {
+            position: absolute;
+            top: 15px;
+            right: 23px;
+            cursor: pointer;
+        }
+
+        #profile-icon svg {
+            width: 30px;
+            height: 30px;
+        }
+
+        #profile-display {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            padding: 20px;
+            background-color: #fff;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            border-radius: 8px;
+            z-index: 1000;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="navbar">
+        Noobs Chat
+    </div>
+    <div id="chat-container">
+        <div id="chat-messages"></div>
+        <input type="text" id="message" placeholder="Masukkan Pesan">
+        <button onclick="sendMessage()">Send</button>
+
+        <!-- Profile icon -->
+        <div id="profile-icon" onclick="toggleProfileDisplay()">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor"
+                class="bi bi-person-circle" viewBox="0 0 16 16">
+                <path d="M11 6a3 3 0 1 1-6 0 3 3 0 0 1 6 0" />
+                <path fill-rule="evenodd"
+                    d="M0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8m8-7a7 7 0 0 0-5.468 11.37C3.242 11.226 4.805 10 8 10s4.757 1.225 5.468 2.37A7 7 0 0 0 8 1" />
+            </svg>
+        </div>
+
+        <!-- Profile display -->
+        <div id="profile-display">
+            <p>User: <span id="profile-username"></span></p>
+            <!-- Add more profile information here -->
+            <button onclick="closeProfileDisplay()">Close</button>
+        </div>
+    </div>
+
+    <script>
+        let messagePollingInterval;
+        let username = "";
+
+        async function setLoggedInUser() {
+            try {
+                const response = await fetch('/get_logged_in_user');
+                const result = await response.json();
+
+                if (result.username) {
+                    username = result.username;
+                    startPolling();
+                }
+            } catch (error) {
+                console.error('Error getting logged-in user:', error.message);
+            }
+        }
+
+        async function sendMessage() {
+            const messageInput = document.getElementById('message');
+            const message = messageInput.value;
+
+            if (message.trim() === '') {
+                console.log('Input pesan kosong. Pengiriman pesan dibatalkan.');
+                return;
+            }
+
+            try {
+                const response = await fetch('/send_message', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ user: username, message }),
+                });
+
+                const result = await response.json();
+                if (result.status === 'success') {
+                    displayMessage(username, message);
+                    console.log('Message sent successfully');
+                } else {
+                    console.error('Error sending message:', result.message);
+                }
+            } catch (error) {
+                console.error('Error sending message:', error.message);
+            } finally {
+                messageInput.value = '';
+            }
+        }
+
+function displayMessage(user, message, timestamp) {
+    const chatMessages = document.getElementById('chat-messages');
+    const messageDiv = document.createElement('div');
+
+    const messageTime = new Date(timestamp);
+    const timeOptions = { hour: 'numeric', minute: 'numeric', second: 'numeric' };
+    const timeString = new Intl.DateTimeFormat('en-US', timeOptions).format(messageTime);
+
+    const isCurrentUser = user === username;
+
+    if (isCurrentUser) {
+        messageDiv.classList.add('current-user-message');
+    } else {
+        messageDiv.classList.add('other-user-message');
+    }
+
+    messageDiv.textContent = `${timeString} ${user}: ${message}`;
+    chatMessages.appendChild(messageDiv);
+}
+
+        function startPolling() {
+            messagePollingInterval = setInterval(getMessages, 1000);
+        }
+
+        function stopPolling() {
+            clearInterval(messagePollingInterval);
+        }
+
+        function getMessages() {
+            fetch('/get_messages')
+                .then(response => response.json())
+                .then(result => {
+                    if (result.messages) {
+                        document.getElementById('chat-messages').innerHTML = '';
+
+                        result.messages.forEach(({ user, message, timestamp}) => {
+                            displayMessage(user, message, timestamp);
+                        });
+                    }
+                })
+                .catch(error => console.error('Error fetching messages:', error.message));
+        }
+
+        function toggleProfileDisplay() {
+            const profileDisplay = document.getElementById('profile-display');
+            const profileUsername = document.getElementById('profile-username');
+
+            if (profileDisplay.style.display === 'block') {
+                profileDisplay.style.display = 'none';
+            } else {
+                profileUsername.textContent = username;
+                profileDisplay.style.display = 'block';
+            }
+        }
+
+        function closeProfileDisplay() {
+            document.getElementById('profile-display').style.display = 'none';
+        }
+
+        setLoggedInUser();
+    </script>
+</body>
+
+</html>
