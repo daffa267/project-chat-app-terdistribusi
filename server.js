@@ -6,9 +6,9 @@ const app = express();
 const PORT = 3001;
 
 const poolMaster1 = mysql.createPool({
-    host: 'localhost',
-    user: 'root',
-    password: '',
+    host: '192.168.1.18',
+    user: 'daffa',
+    password: 'daffa',
     database: 'pesan',
     connectionLimit: 10,
 });
